@@ -1,3 +1,3 @@
 # KV-Cache-Optimization
 
-This repositry contains implementation of different KV Cache Optimization Methods
+This repo contains implementation of different KV Cache Optimization Methods
