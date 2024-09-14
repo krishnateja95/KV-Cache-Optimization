@@ -1,0 +1,34 @@
+A novel KV cache merging idea that focuses on merging blocks of KV cache tokens rather than individual tokens. This approach, which we can call "Block-based Adaptive KV Cache Merging" or "BlockMerge" for short, combines ideas from several sources to create an efficient and effective method for compressing KV caches in Large Language Models (LLMs).
+
+Proposed BlockMerge approach:
+Block Partitioning:
+Divide the KV cache into fixed-size blocks, similar to the PagedAttention approach mentioned in .
+Each block contains the attention keys and values for a fixed number of tokens.
+Block Hashing:
+Create a unique hash for each block based on its content and the prefix tokens before it, as described in .
+This hash will serve as an identifier for the block and enable efficient caching and retrieval.
+Similarity-based Block Merging:
+Instead of merging individual tokens, identify similar blocks of KV cache using their hash values and content similarity.
+Implement a similarity threshold to determine which blocks are candidates for merging.
+Adaptive Merging Strategy:
+Develop an adaptive merging strategy that considers the importance of blocks based on their position in the sequence and their attention patterns.
+Prioritize merging blocks that are less likely to significantly impact model performance.
+Reparameterization-based Merging:
+Adopt the reparameterization approach from  for merging blocks:
+Decompose each block into magnitude and direction components.
+Use SLERP (Spherical Linear Interpolation) to merge the directional components of similar blocks.
+Preserve the magnitude information to allow for accurate restoration.
+Selective Block Retention:
+Implement a token retention threshold similar to , but apply it at the block level.
+Retain blocks that contain critical information without merging, based on their importance to the model's performance.
+Multi-layer Compression:
+Apply the merging technique to the latter half of the model's layers, as suggested in , to balance compression and performance.
+Gaussian Kernel Weighted Merging:
+Incorporate a Gaussian kernel weighted merging function, as mentioned in , to selectively merge blocks within each identified merging set.
+Adaptive Cache Management:
+Implement a flexible caching policy using a hash table, as described in , to manage the merged and unmerged blocks efficiently.
+Use an eviction policy that considers reference count, least recently used (LRU) status, and block position in the sequence.
+Error Correction and Accuracy Improvement:
+Develop error correction mechanisms similar to those mentioned in  to address potential merge errors and improve overall accuracy.
+This BlockMerge approach aims to achieve significant KV cache compression while minimizing performance degradation. By operating on blocks rather than individual tokens, it can potentially reduce computational overhead and improve efficiency in managing the KV cache for long-context tasks in LLMs.
+The proposed method combines the strengths of existing approaches, such as the efficient block management of PagedAttention, the reparameterization technique from MiniCache, and the adaptive merging strategies from other papers, while introducing the novel concept of block-level merging for KV caches in LLMs.
