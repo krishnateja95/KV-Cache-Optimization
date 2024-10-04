@@ -1,0 +1,9 @@
+numpy
+torch
+transformers
+sentencepiece
+protobuf
+datasets
+tqdm
+accelerate
+rouge
