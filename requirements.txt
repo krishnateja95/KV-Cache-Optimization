@@ -44,6 +44,7 @@ lark==1.2.2
 lazy_loader==0.4
 librosa==0.10.2.post1
 llvmlite==0.43.0
+lm-eval==0.4.4
 lm-format-enforcer==0.10.6
 MarkupSafe==2.1.5
 matplotlib==3.9.2

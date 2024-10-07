@@ -73,58 +73,52 @@ class Cache(torch.nn.Module):
             return None
 
 
-@dataclass
-class CacheConfig:
-    cache_implementation: None
+# @dataclass
+# class CacheConfig:
+#     cache_implementation: None
 
-    @classmethod
-    def from_dict(cls, config_dict, **kwargs):
-        config = cls(**config_dict)
-        to_remove = []
-        for key, value in kwargs.items():
-            if hasattr(config, key):
-                setattr(config, key, value)
-                to_remove.append(key)
-        for key in to_remove:
-            kwargs.pop(key, None)
-        return config
+#     @classmethod
+#     def from_dict(cls, config_dict, **kwargs):
+#         config = cls(**config_dict)
+#         to_remove = []
+#         for key, value in kwargs.items():
+#             if hasattr(config, key):
+#                 setattr(config, key, value)
+#                 to_remove.append(key)
+#         for key in to_remove:
+#             kwargs.pop(key, None)
+#         return config
 
-    # Copied from transformers.utils.quantization_config.QuantizationConfigMixin.to_json_file
-    def to_json_file(self, json_file_path: Union[str, os.PathLike]):
+#     def to_json_file(self, json_file_path: Union[str, os.PathLike]):
         
-        with open(json_file_path, "w", encoding="utf-8") as writer:
-            config_dict = self.to_dict()
-            json_string = json.dumps(config_dict, indent=2, sort_keys=True) + "\n"
+#         with open(json_file_path, "w", encoding="utf-8") as writer:
+#             config_dict = self.to_dict()
+#             json_string = json.dumps(config_dict, indent=2, sort_keys=True) + "\n"
 
-            writer.write(json_string)
+#             writer.write(json_string)
 
-    # Copied from transformers.utils.quantization_config.QuantizationConfigMixin.to_dict
-    def to_dict(self) -> Dict[str, Any]:
-        return copy.deepcopy(self.__dict__)
+#     def to_dict(self) -> Dict[str, Any]:
+#         return copy.deepcopy(self.__dict__)
 
-    # Copied from transformers.utils.quantization_config.QuantizationConfigMixin.__iter__
-    def __iter__(self):
-        for attr, value in copy.deepcopy(self.__dict__).items():
-            yield attr, value
+#     def __iter__(self):
+#         for attr, value in copy.deepcopy(self.__dict__).items():
+#             yield attr, value
 
-    # Copied from transformers.utils.quantization_config.QuantizationConfigMixin.__repr__
-    def __repr__(self):
-        return f"{self.__class__.__name__} {self.to_json_string()}"
+#     def __repr__(self):
+#         return f"{self.__class__.__name__} {self.to_json_string()}"
 
-    def to_json_string(self):
-        return json.dumps(self.__dict__, indent=2) + "\n"
+#     def to_json_string(self):
+#         return json.dumps(self.__dict__, indent=2) + "\n"
 
-    # Copied from transformers.utils.quantization_config.QuantizationConfigMixin.update
-    def update(self, **kwargs):
-        to_remove = []
-        for key, value in kwargs.items():
-            if hasattr(self, key):
-                setattr(self, key, value)
-                to_remove.append(key)
+#     def update(self, **kwargs):
+#         to_remove = []
+#         for key, value in kwargs.items():
+#             if hasattr(self, key):
+#                 setattr(self, key, value)
+#                 to_remove.append(key)
 
-        # Remove all the attributes that were updated, without modifying the input dict
-        unused_kwargs = {key: value for key, value in kwargs.items() if key not in to_remove}
-        return unused_kwargs
+#         unused_kwargs = {key: value for key, value in kwargs.items() if key not in to_remove}
+#         return unused_kwargs
 
 
 
@@ -166,8 +160,6 @@ class DynamicCache(Cache):
         else:
             self.key_cache[layer_idx] = torch.cat([self.key_cache[layer_idx], key_states], dim=-2)
             self.value_cache[layer_idx] = torch.cat([self.value_cache[layer_idx], value_states], dim=-2)
-
-        print("self.key_cache[layer_idx].size()", self.key_cache[layer_idx].size())
 
         return self.key_cache[layer_idx], self.value_cache[layer_idx]
 
