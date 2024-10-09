@@ -19,6 +19,8 @@ def run_evaluation():
                                                  cache_dir= cache_dir,
                                                  torch_dtype = torch.float16,
                                                  device_map = "auto")
+    
+    model.KV_cache_evict_params(method = "attn_weight", block_size = 16, evict_size = 8)
 
     result = evaluate(
             HFLM(

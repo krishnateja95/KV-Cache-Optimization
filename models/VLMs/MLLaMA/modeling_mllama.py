@@ -7,24 +7,23 @@ import torch.utils.checkpoint
 from torch import nn
 from torch.nn import CrossEntropyLoss
 
-from ... import PreTrainedModel
-from ...activations import ACT2FN
-from ...cache_utils import Cache
-from ...generation import GenerationMixin
-from ...modeling_attn_mask_utils import AttentionMaskConverter
-from ...modeling_outputs import BaseModelOutput, BaseModelOutputWithPast, CausalLMOutputWithPast
-from ...modeling_rope_utils import ROPE_INIT_FUNCTIONS
-from ...utils import (
+from transformers import PreTrainedModel
+from transformers.activations import ACT2FN
+from transformers.cache_utils import Cache
+from transformers.generation import GenerationMixin
+from transformers.modeling_attn_mask_utils import AttentionMaskConverter
+from transformers.modeling_outputs import BaseModelOutput, BaseModelOutputWithPast, CausalLMOutputWithPast
+from transformers.modeling_rope_utils import ROPE_INIT_FUNCTIONS
+from transformers.utils import (
     add_start_docstrings,
     add_start_docstrings_to_model_forward,
     logging,
     replace_return_docstrings,
 )
-from .configuration_mllama import MllamaConfig, MllamaTextConfig, MllamaVisionConfig
 
+from transformers.models.mllama.configuration_mllama import MllamaConfig, MllamaTextConfig, MllamaVisionConfig
 
 logger = logging.get_logger(__name__)
-
 
 def _prepare_cross_attention_mask(
     cross_attention_mask: torch.Tensor,
@@ -293,14 +292,6 @@ class MllamaVisionEncoderLayer(nn.Module):
 
 
 class MllamaVisionEncoder(nn.Module):
-    """
-    Transformer encoder consisting of `config.num_hidden_layers` self attention layers. Each layer is a
-    [`MllamaEncoderLayer`].
-
-    Args:
-        config: MllamaConfig
-    """
-
     def __init__(self, config: MllamaVisionConfig, num_layers=32, is_gated=False):
         super().__init__()
         self.config = config
@@ -316,28 +307,7 @@ class MllamaVisionEncoder(nn.Module):
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
     ) -> Union[Tuple, BaseModelOutput]:
-        r"""
-        Args:
-            inputs_embeds (`torch.FloatTensor` of shape `(batch_size, sequence_length, hidden_size)`):
-                Optionally, instead of passing `input_ids` you can choose to directly pass an embedded representation.
-                This is useful if you want more control over how to convert `input_ids` indices into associated vectors
-                than the model's internal embedding lookup matrix.
-            attention_mask (`torch.Tensor` of shape `(batch_size, sequence_length)`, *optional*):
-                Mask to avoid performing attention on padding token indices. Mask values selected in `[0, 1]`:
-
-                - 1 for tokens that are **not masked**,
-                - 0 for tokens that are **masked**.
-
-                [What are attention masks?](../glossary#attention-mask)
-            output_attentions (`bool`, *optional*):
-                Whether or not to return the attentions tensors of all attention layers. See `attentions` under
-                returned tensors for more detail.
-            output_hidden_states (`bool`, *optional*):
-                Whether or not to return the hidden states of all layers. See `hidden_states` under returned tensors
-                for more detail.
-            return_dict (`bool`, *optional*):
-                Whether or not to return a [`~utils.ModelOutput`] instead of a plain tuple.
-        """
+        
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
         output_hidden_states = (
             output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
@@ -379,12 +349,8 @@ class MllamaVisionEncoder(nn.Module):
         )
 
 
-# Copied from transformers.models.llama.modeling_llama.LlamaRMSNorm with Llama->MllamaText
 class MllamaTextRMSNorm(nn.Module):
     def __init__(self, hidden_size, eps=1e-6):
-        """
-        MllamaTextRMSNorm is equivalent to T5LayerNorm
-        """
         super().__init__()
         self.weight = nn.Parameter(torch.ones(hidden_size))
         self.variance_epsilon = eps
@@ -401,8 +367,6 @@ class MllamaTextRMSNorm(nn.Module):
 
 
 class MllamaTextCrossAttention(nn.Module):
-    """Multi-headed attention from 'Attention Is All You Need' paper"""
-
     def __init__(
         self,
         config: Optional[MllamaTextConfig] = None,
@@ -436,7 +400,6 @@ class MllamaTextCrossAttention(nn.Module):
         use_cache: bool = None,
         cache_position: Optional[torch.LongTensor] = None,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
-        """Input shape: Batch x Time x Channel"""
         bsz, q_len, _ = hidden_states.size()
         query_states = self.q_proj(hidden_states)
         query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
@@ -2252,3 +2215,38 @@ class MllamaForConditionalGeneration(MllamaPreTrainedModel, GenerationMixin):
                 [cross_attention_mask_prev, cross_attention_mask_prev[:, -1:, ...]], dim=1
             )
         return model_kwargs
+    
+
+if __name__ == '__main__':
+
+    import requests
+    import torch
+    from PIL import Image
+    # from transformers import MllamaForConditionalGeneration, AutoProcessor
+    from transformers import AutoProcessor
+
+    cache_dir = '/lus/grand/projects/datascience/krishnat/model_weights/LLaMA/llama_cache/'
+
+    model_id = "meta-llama/Llama-3.2-11B-Vision-Instruct"
+    model = MllamaForConditionalGeneration.from_pretrained(model_id, cache_dir=cache_dir, device_map="auto", torch_dtype=torch.bfloat16)
+    processor = AutoProcessor.from_pretrained(model_id)
+
+    messages = [
+        [
+            {
+                "role": "user", 
+                "content": [
+                    {"type": "image"},
+                    {"type": "text", "text": "What does the image show?"}
+                ]
+            }
+        ],
+    ]
+    text = processor.apply_chat_template(messages, add_generation_prompt=True)
+
+    url = "https://llava-vl.github.io/static/images/view.jpg"
+    image = Image.open(requests.get(url, stream=True).raw)
+
+    inputs = processor(text=text, images=image, return_tensors="pt").to(model.device)
+    output = model.generate(**inputs, max_new_tokens=25)
+    print(processor.decode(output[0]))

@@ -37,8 +37,8 @@ def generate_prompt(model, tokenizer, prompts):
 
 if __name__ == '__main__':
 
-    # model_name = "meta-llama/Llama-3.1-8B"
-    model_name = "meta-llama/Meta-Llama-3-8B"
+    model_name = "meta-llama/Llama-3.1-8B"
+    # model_name = "meta-llama/Meta-Llama-3-8B"
     cache_dir="/lus/grand/projects/datascience/krishnat/model_weights/LLaMA/llama_cache/"
     
     model = LlamaForCausalLM.from_pretrained(model_name,
