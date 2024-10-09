@@ -145,7 +145,7 @@ if __name__ == '__main__':
         
         data_all = [data_sample for data_sample in data]
         # data_all = data_all[0:int(len(data_all)*0.3)]
-        data_all = data_all[0:3]
+        # data_all = data_all[0:3]
         
         get_pred(data_all, max_length, max_gen, prompt_format, dataset, model_name, model2path, out_path)
 
