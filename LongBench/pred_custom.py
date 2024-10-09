@@ -90,11 +90,13 @@ def load_model_and_tokenizer(path, model_name):
         from models.LLMs.LLaMA.modeling_llama import LlamaForCausalLM
         tokenizer = AutoTokenizer.from_pretrained(path, trust_remote_code=True)
         model = LlamaForCausalLM.from_pretrained(path, trust_remote_code=True, torch_dtype=torch.bfloat16, cache_dir=cache_dir, device_map = "auto")
+        model.KV_cache_evict_params(method = "attn_block_evict", block_size = 8, evict_size = 2)
 
     elif "llama2" in model_name:
         tokenizer = LlamaTokenizer.from_pretrained(path, cache_dir=cache_dir)
         model = LlamaForCausalLM.from_pretrained(path, cache_dir=cache_dir, torch_dtype=torch.bfloat16, device_map = "auto")
-
+        model.KV_cache_evict_params(method = "attn_block_evict", block_size = 8, evict_size = 2)
+        
     model = model.eval()
     return model, tokenizer
 

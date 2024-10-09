@@ -367,9 +367,15 @@ class LlamaSdpaAttention(LlamaAttention):
             cos, sin = position_embeddings
         query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
 
+        if self.layer_idx == 0:
+            print("before query_states.size(), key_states.size(), value_states.size()", query_states.size(), key_states.size(), value_states.size())
+
         if past_key_value is not None:
             cache_kwargs = {"sin": sin, "cos": cos, "cache_position": cache_position}
             key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs)
+
+        if self.layer_idx == 0:
+            print("after  query_states.size(), key_states.size(), value_states.size()", query_states.size(), key_states.size(), value_states.size())
 
         key_states = repeat_kv(key_states, self.num_key_value_groups)
         value_states = repeat_kv(value_states, self.num_key_value_groups)
@@ -383,23 +389,43 @@ class LlamaSdpaAttention(LlamaAttention):
             key_states = key_states.contiguous()
             value_states = value_states.contiguous()
 
+
         is_causal = True if causal_mask is None and q_len > 1 else False
+        dropout_p=self.attention_dropout if self.training else 0.0
 
-        attn_output = torch.nn.functional.scaled_dot_product_attention(
-            query_states,
-            key_states,
-            value_states,
-            attn_mask=causal_mask,
-            dropout_p=self.attention_dropout if self.training else 0.0,
-            is_causal=is_causal,
-        )
+        L, S = query_states.size(-2), key_states.size(-2)
+        scale_factor = 1 / math.sqrt(query_states.size(-1))
+        attn_bias = torch.zeros(L, S, dtype=query_states.dtype, device=query_states.device)
+        if is_causal:
+            assert causal_mask is None
+            temp_mask = torch.ones(L, S, dtype=torch.bool, device=query_states.device).tril(diagonal=0)
+            attn_bias.masked_fill_(temp_mask.logical_not(), float("-inf"))
+            attn_bias.to(query_states.dtype)
 
+        if causal_mask is not None:
+            if causal_mask.dtype == torch.bool:
+                attn_bias.masked_fill_(causal_mask.logical_not(), float("-inf"))
+            else:
+                attn_bias = causal_mask + attn_bias
+
+        attn_weight = query_states @ key_states.transpose(-2, -1) * scale_factor
+        attn_weight += attn_bias
+        attn_weight = torch.softmax(attn_weight, dim=-1)
+        attn_weight = torch.dropout(attn_weight, dropout_p, train=True)
+
+        attn_output = attn_weight @ value_states
+        
         attn_output = attn_output.transpose(1, 2).contiguous()
         attn_output = attn_output.view(bsz, q_len, -1)
 
         attn_output = self.o_proj(attn_output)
 
         return attn_output, None, past_key_value
+    
+    def KV_cache_evict_params(self, method, block_size, evict_size):
+        self.method = method
+        self.block_size = block_size
+        self.evict_size = evict_size
 
 
 LLAMA_ATTENTION_CLASSES = {
@@ -418,6 +444,9 @@ class LlamaDecoderLayer(nn.Module):
         self.mlp = LlamaMLP(config)
         self.input_layernorm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
         self.post_attention_layernorm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
+    
+    def KV_cache_evict_params(self, method, block_size, evict_size):
+        self.self_attn.KV_cache_evict_params(method, block_size, evict_size)
 
     def forward(
         self,
@@ -513,6 +542,10 @@ class LlamaModel(LlamaPreTrainedModel):
 
     def set_input_embeddings(self, value):
         self.embed_tokens = value
+
+    def KV_cache_evict_params(self, method, block_size, evict_size):
+        for decoder_layer in self.layers:
+            decoder_layer.KV_cache_evict_params(method, block_size, evict_size)
 
     def forward(
         self,
@@ -752,6 +785,9 @@ class LlamaForCausalLM(LlamaPreTrainedModel, GenerationMixin):
 
     def get_decoder(self):
         return self.model
+
+    def KV_cache_evict_params(self, method, block_size, evict_size):
+        self.model.KV_cache_evict_params(method, block_size, evict_size)
 
     def forward(
         self,

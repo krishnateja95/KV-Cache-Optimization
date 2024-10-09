@@ -420,6 +420,7 @@ class LlamaSdpaAttention(LlamaAttention):
         if past_key_value is not None:
             cache_kwargs = {"sin": sin, "cos": cos, "cache_position": cache_position}
             key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs)
+            past_key_value.check_eviction()
 
         # if self.layer_idx == 0:
         #     print("after  query_states.size(), key_states.size(), value_states.size()", query_states.size(), key_states.size(), value_states.size())
@@ -781,7 +782,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
 
     def KV_cache_evict_params(self, method, block_size, evict_size):
         self.model.KV_cache_evict_params(method, block_size, evict_size)
-        pass
+        
 
     def get_input_embeddings(self):
         return self.model.embed_tokens
