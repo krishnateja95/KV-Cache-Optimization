@@ -149,7 +149,6 @@ class MllamaVisionMLP(nn.Module):
 class MllamaVisionAttention(nn.Module):
     def __init__(self, config: MllamaVisionConfig):
         super().__init__()
-
         self.embed_dim = config.hidden_size
         self.num_heads = config.attention_heads
         self.head_dim = config.hidden_size // config.attention_heads
@@ -236,7 +235,6 @@ class MllamaVisionSdpaAttention(MllamaVisionAttention):
 
 
 MLLAMA_VISION_ATTENTION_CLASSES = {"eager": MllamaVisionAttention, "sdpa": MllamaVisionSdpaAttention}
-
 
 class MllamaVisionEncoderLayer(nn.Module):
     def __init__(self, config: MllamaVisionConfig, is_gated: bool = False):
@@ -978,7 +976,7 @@ class MllamaVisionModel(MllamaPreTrainedModel):
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
         batch_size, num_concurrent_media, num_tiles, num_channels, height, width = pixel_values.shape
-
+        
         pixel_values = pixel_values.reshape(batch_size * num_concurrent_media * num_tiles, num_channels, height, width)
         aspect_ratio_ids = aspect_ratio_ids.reshape(batch_size * num_concurrent_media, -1)
 
@@ -1487,12 +1485,9 @@ class MllamaForConditionalGeneration(MllamaPreTrainedModel, GenerationMixin):
         self.vision_output_dim = config.vision_config.vision_output_dim
         self.pad_token_id = self.config.pad_token_id if self.config.pad_token_id is not None else -1
 
-        self.vision_model = MllamaVisionModel._from_config(
-            config.vision_config, attn_implementation=config._attn_implementation
-        )
-        self.language_model = MllamaForCausalLM._from_config(
-            config.text_config, attn_implementation=config._attn_implementation
-        )
+        self.vision_model = MllamaVisionModel._from_config(config.vision_config, attn_implementation=config._attn_implementation)
+        self.language_model = MllamaForCausalLM._from_config(config.text_config, attn_implementation=config._attn_implementation)
+        
         self.multi_modal_projector = nn.Linear(
             config.vision_config.vision_output_dim,
             config.text_config.hidden_size,
@@ -1541,10 +1536,11 @@ class MllamaForConditionalGeneration(MllamaPreTrainedModel, GenerationMixin):
         cache_position: Optional[torch.LongTensor] = None,
         num_logits_to_keep: int = 0,
     ) -> Union[Tuple, CausalLMOutputWithPast]:
+        
+        
+        
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
-        output_hidden_states = (
-            output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
-        )
+        output_hidden_states = (output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states)
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
         if (input_ids is None) ^ (inputs_embeds is not None):
@@ -1561,6 +1557,9 @@ class MllamaForConditionalGeneration(MllamaPreTrainedModel, GenerationMixin):
         if pixel_values is not None:
             if aspect_ratio_ids is None:
                 raise ValueError("`aspect_ratio_ids` must be provided if `pixel_values` is provided")
+            
+            print("pixel_values.shape", pixel_values.shape)
+
             vision_outputs = self.vision_model(
                 pixel_values=pixel_values,
                 aspect_ratio_ids=aspect_ratio_ids,
@@ -1569,10 +1568,14 @@ class MllamaForConditionalGeneration(MllamaPreTrainedModel, GenerationMixin):
                 output_attentions=output_attentions,
                 return_dict=return_dict,
             )
+
+            print("pixel_values.shape", vision_outputs[0].shape)
+            
+
             cross_attention_states = vision_outputs[0]
-            cross_attention_states = self.multi_modal_projector(cross_attention_states).reshape(
-                -1, cross_attention_states.shape[-2], self.hidden_size
-            )
+            cross_attention_states = self.multi_modal_projector(cross_attention_states).reshape(-1, cross_attention_states.shape[-2], self.hidden_size)
+        
+        exit()
 
         if cross_attention_mask is not None:
             cross_attention_mask, full_text_row_masked_out_mask = _prepare_cross_attention_mask(
@@ -1674,9 +1677,7 @@ class MllamaForConditionalGeneration(MllamaPreTrainedModel, GenerationMixin):
 
         # add cross-attn mask for new token
         if cross_attention_mask_prev is not None:
-            model_kwargs["cross_attention_mask"] = torch.cat(
-                [cross_attention_mask_prev, cross_attention_mask_prev[:, -1:, ...]], dim=1
-            )
+            model_kwargs["cross_attention_mask"] = torch.cat([cross_attention_mask_prev, cross_attention_mask_prev[:, -1:, ...]], dim=1)
         return model_kwargs
     
 
@@ -1714,3 +1715,5 @@ if __name__ == '__main__':
     
     output = model.generate(**inputs, max_new_tokens=25)
     print(processor.decode(output[0]))
+
+    

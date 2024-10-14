@@ -9,6 +9,8 @@ from models.VLMs.MLLaMA.modeling_mllama import MllamaForConditionalGeneration
 
 cache_dir = '/lus/grand/projects/datascience/krishnat/model_weights/LLaMA/llama_cache/'
 
+# import pdb; pdb.set_trace()
+
 model_id = "meta-llama/Llama-3.2-11B-Vision-Instruct"
 model = MllamaForConditionalGeneration.from_pretrained(model_id, cache_dir=cache_dir, device_map="auto", torch_dtype=torch.bfloat16)
 processor = AutoProcessor.from_pretrained(model_id)
